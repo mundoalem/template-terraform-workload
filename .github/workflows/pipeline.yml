@@ -1,0 +1,298 @@
+name: Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ 1.17.0 ]
+        os: [ ubuntu-20.04 ]
+    name: Lint
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Cache vendor directory
+        uses: actions/cache@v2
+        id: cache-vendor
+        with:
+          path: vendor/
+          key: ${{ runner.os }}-go${{ matrix.go-version }}-${{ hashFiles('go.sum') }}
+      - name: Cache mage install
+        id: cache-mage
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin/mage
+          key: ${{ runner.os }}-mage-${{ hashFiles('~/.local/bin/mage') }}
+      - name: Cache tfenv install
+        id: cache-tfenv
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.tfenv
+            ~/.local/bin
+          key: ${{ runner.os }}-tfenv-${{ hashFiles('.terraform-version') }}
+      - name: Install Mage
+        if: steps.cache-mage.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://github.com/magefile/mage/releases/download/v1.11.0/mage_1.11.0_Linux-64bit.tar.gz | tar -xzf- mage
+          chmod +x mage
+          mkdir -p ~/.local/bin
+          mv mage ~/.local/bin
+      - name: Install tfenv
+        if: steps.cache-tfenv.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          ln -s ~/.tfenv/bin/* ~/.local/bin
+      - name: Install Dependencies
+        if: steps.cache-vendor.outputs.cache-hit != 'true'
+        run: |
+          tfenv install
+          go mod vendor
+      - name: Lint
+        run: |
+          mage -v lint
+  
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ 1.17.0 ]
+        os: [ ubuntu-20.04 ]
+    name: Test
+    needs: lint
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Cache vendor directory
+        uses: actions/cache@v2
+        id: cache-vendor
+        with:
+          path: vendor/
+          key: ${{ runner.os }}-go${{ matrix.go-version }}-${{ hashFiles('go.sum') }}
+      - name: Cache mage install
+        id: cache-mage
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin/mage
+          key: ${{ runner.os }}-mage-${{ hashFiles('~/.local/bin/mage') }}
+      - name: Cache tfenv install
+        id: cache-tfenv
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.tfenv
+            ~/.local/bin
+          key: ${{ runner.os }}-tfenv-${{ hashFiles('.terraform-version') }}
+      - name: Install Mage
+        if: steps.cache-mage.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://github.com/magefile/mage/releases/download/v1.11.0/mage_1.11.0_Linux-64bit.tar.gz | tar -xzf- mage
+          chmod +x mage
+          mkdir -p ~/.local/bin
+          mv mage ~/.local/bin
+      - name: Install tfenv
+        if: steps.cache-tfenv.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          ln -s ~/.tfenv/bin/* ~/.local/bin
+      - name: Install Dependencies
+        if: steps.cache-vendor.outputs.cache-hit != 'true'
+        run: |
+          tfenv install
+          go mod vendor
+      - name: Test
+        run: |
+          mage -v test
+  
+  scan:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ 1.17.0 ]
+        os: [ ubuntu-20.04 ]
+    name: Scan
+    needs: lint
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache vendor directory
+        uses: actions/cache@v2
+        id: cache-vendor
+        with:
+          path: vendor/
+          key: ${{ runner.os }}-go${{ matrix.go-version }}-${{ hashFiles('go.sum') }}
+      - name: Cache mage install
+        id: cache-mage
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin/mage
+          key: ${{ runner.os }}-mage-${{ hashFiles('~/.local/bin/mage') }}
+      - name: Cache tfsec install
+        id: cache-tfsec
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin/tfsec
+          key: ${{ runner.os }}-tfsec-${{ hashFiles('~/.local/bin/tfsec') }}
+      - name: Cache tfenv install
+        id: cache-tfenv
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.tfenv
+            ~/.local/bin
+          key: ${{ runner.os }}-tfenv-${{ hashFiles('.terraform-version') }}
+      - name: Install Mage
+        if: steps.cache-mage.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://github.com/magefile/mage/releases/download/v1.11.0/mage_1.11.0_Linux-64bit.tar.gz | tar -xzf- mage
+          chmod +x mage
+          mkdir -p ~/.local/bin
+          mv mage ~/.local/bin
+      - name: Install tfsec
+        if: steps.cache-tfsec.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://github.com/aquasecurity/tfsec/releases/download/v0.58.6/tfsec-linux-amd64 > ~/.local/bin/tfsec
+          chmod +x ~/.local/bin/tfsec
+      - name: Install tfenv
+        if: steps.cache-tfenv.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          ln -s ~/.tfenv/bin/* ~/.local/bin
+      - name: Install Dependencies
+        if: steps.cache-vendor.outputs.cache-hit != 'true'
+        run: |
+          tfenv install
+          go mod vendor
+      - name: Scan
+        run: |
+          mage -v scan
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ 1.17.0 ]
+        os: [ ubuntu-20.04 ]
+    name: Build
+    needs: [test, scan]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Cache vendor directory
+        id: cache-vendor
+        uses: actions/cache@v2
+        with:
+          path: vendor/
+          key: ${{ runner.os }}-go${{ matrix.go-version }}-${{ hashFiles('go.sum') }}
+      - name: Cache mage install
+        id: cache-mage
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin/mage
+          key: ${{ runner.os }}-mage-${{ hashFiles('~/.local/bin/mage') }}
+      - name: Cache tfenv install
+        id: cache-tfenv
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.tfenv
+            ~/.local/bin
+          key: ${{ runner.os }}-tfenv-${{ hashFiles('.terraform-version') }}
+      - name: Install Mage
+        if: steps.cache-mage.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://github.com/magefile/mage/releases/download/v1.11.0/mage_1.11.0_Linux-64bit.tar.gz | tar -xzf- mage
+          chmod +x mage
+          mkdir -p ~/.local/bin
+          mv mage ~/.local/bin
+      - name: Install tfenv
+        if: steps.cache-tfenv.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          ln -s ~/.tfenv/bin/* ~/.local/bin
+      - name: Install Dependencies
+        if: steps.cache-vendor.outputs.cache-hit != 'true'
+        run: |
+          tfenv install
+          go mod vendor
+      - name: Build Test Environment
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          mage -v build test
+      - name: Build Live Environment
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          mage -v build live
+
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ 1.17.0 ]
+        os: [ ubuntu-20.04 ]
+    name: Release
+    needs: build
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Cache vendor directory
+        id: cache-vendor
+        uses: actions/cache@v2
+        with:
+          path: vendor/
+          key: ${{ runner.os }}-go${{ matrix.go-version }}-${{ hashFiles('go.sum') }}
+      - name: Cache mage install
+        id: cache-mage
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin/mage
+          key: ${{ runner.os }}-mage-${{ hashFiles('~/.local/bin/mage') }}
+      - name: Cache tfenv install
+        id: cache-tfenv
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.tfenv
+            ~/.local/bin
+          key: ${{ runner.os }}-tfenv-${{ hashFiles('.terraform-version') }}
+      - name: Install Mage
+        if: steps.cache-mage.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://github.com/magefile/mage/releases/download/v1.11.0/mage_1.11.0_Linux-64bit.tar.gz | tar -xzf- mage
+          chmod +x mage
+          mkdir -p ~/.local/bin
+          mv mage ~/.local/bin
+      - name: Install tfenv
+        if: steps.cache-tfenv.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          ln -s ~/.tfenv/bin/* ~/.local/bin
+      - name: Install Dependencies
+        if: steps.cache-vendor.outputs.cache-hit != 'true'
+        run: |
+          tfenv install
+          go mod vendor
+      - name: Release Test Environment
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          mage -v build test
+          mage -v release test
+      - name: Release Live Environment
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          mage -v build live
+          mage -v release live
