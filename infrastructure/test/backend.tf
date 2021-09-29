@@ -21,5 +21,9 @@ terraform {
     workspaces {
       name = "template-terraform-infrastructure-test"
     }
+
+    credentials "app.terraform.io" {
+      token = var.token
+    }
   }
 }

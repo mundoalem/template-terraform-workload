@@ -15,5 +15,5 @@
 
 module "hello_service" {
   source      = "./services/hello"
-  environment = "live"
+  environment = var.environment
 }
