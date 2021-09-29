@@ -22,9 +22,3 @@ variable "environment" {
     error_message = "The name of the environment may only contain letters."
   }
 }
-
-variable "token" {
-  type        = string
-  description = "The token used to authenticate against the remote backend."
-  sensitive   = true
-}

@@ -21,9 +21,5 @@ terraform {
     workspaces {
       name = "template-terraform-infrastructure-live"
     }
-
-    credentials "app.terraform.io" {
-      token = var.token
-    }
   }
 }
