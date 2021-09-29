@@ -19,23 +19,28 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
+	"text/template"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
 
 var (
-	AllEnvironments   []string = []string{"test", "live"}
-	InfrastructureDir string   = path.Join(".", "infrastructure")
-	LockTimeout       int      = 5
-	TestDir           string   = path.Join(".", "test")
-	VendorDir         string   = path.Join(".", "vendor")
+	AllEnvironments     []string = []string{"test", "live"}
+	AssetsDir           string   = path.Join(".", "assets")
+	InfrastructureDir   string   = path.Join(".", "infrastructure")
+	LockTimeout         int      = 5
+	TemplatesDir        string   = path.Join(AssetsDir, "templates")
+	TerraformConfigPath string   = path.Join("~", ".terraformrc")
+	TestDir             string   = path.Join(".", "test")
+	VendorDir           string   = path.Join(".", "vendor")
 )
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +62,7 @@ func contains(s []string, el string) bool {
 // MAGE TARGETS
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Build runs plan for a given environment
+// Build plans the release for a given environment
 func Build(environ string) error {
 	var environmentsToBuild []string
 
@@ -111,7 +116,7 @@ func Build(environ string) error {
 	return nil
 }
 
-// Clean removes temporary and build files
+// Clean removes temporary files created by other processes
 func Clean() error {
 	filesAndDirsToRemove := []string{
 		".terraform",
@@ -134,7 +139,42 @@ func Clean() error {
 	return nil
 }
 
-// Lint checks the project's code for style and syntax issues
+// Config sets up the required configuration files to run the pipeline
+func Config() error {
+	token := os.Getenv("TF_CREDENTIALS")
+
+	if token == "" {
+		return errors.New("Terraform remote backend token not found in environment")
+	}
+
+	f, err := os.Create(TerraformConfigPath)
+
+	if err != nil {
+		return err
+	}
+
+	writer := bufio.NewWriter(f)
+
+	tmpl := template.Must(
+		template.New("terraformrc.tmpl").ParseFiles(
+			path.Join(TemplatesDir, "terraformrc.tmpl"),
+		),
+	)
+
+	err = tmpl.Execute(writer, struct {
+		Token string
+	}{
+		token,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Lint checks the source code for style and syntax issues
 func Lint() error {
 	pathsToLint := []string{
 		InfrastructureDir,
@@ -162,7 +202,7 @@ func Lint() error {
 	return nil
 }
 
-// Build runs apply for a given environment
+// Release applies the configuration for a given environment
 func Release(environ string) error {
 	var environmentsToBuild []string
 
@@ -220,7 +260,7 @@ func Reset() error {
 	return nil
 }
 
-// Scan runs a security check to search for known vulnerabilities in project
+// Scan runs a security check to search for known vulnerabilities in the project
 func Scan() error {
 	_, err := exec.LookPath("tfsec")
 

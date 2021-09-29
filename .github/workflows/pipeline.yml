@@ -55,6 +55,7 @@ jobs:
           go mod vendor
       - name: Lint
         run: |
+          mage -v config
           mage -v lint
   
   test:
@@ -110,6 +111,7 @@ jobs:
           go mod vendor
       - name: Test
         run: |
+          mage -v config
           mage -v test
   
   scan:
@@ -233,6 +235,7 @@ jobs:
       - name: Build Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
+          mage -v config
           mage -v build live
 
   release:
@@ -289,10 +292,12 @@ jobs:
       - name: Release Test Environment
         if: ${{ github.ref != 'refs/heads/main' }}
         run: |
+          mage -v config
           mage -v build test
           mage -v release test
       - name: Release Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
+          mage -v config
           mage -v build live
           mage -v release live
