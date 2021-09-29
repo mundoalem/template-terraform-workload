@@ -54,6 +54,8 @@ jobs:
           tfenv install
           go mod vendor
       - name: Lint
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v lint
   
@@ -109,6 +111,8 @@ jobs:
           tfenv install
           go mod vendor
       - name: Test
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v test
   
@@ -172,6 +176,8 @@ jobs:
           tfenv install
           go mod vendor
       - name: Scan
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v scan
 
@@ -228,10 +234,14 @@ jobs:
           go mod vendor
       - name: Build Test Environment
         if: ${{ github.ref != 'refs/heads/main' }}
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v build test
       - name: Build Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v build live
 
@@ -288,11 +298,15 @@ jobs:
           go mod vendor
       - name: Release Test Environment
         if: ${{ github.ref != 'refs/heads/main' }}
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v build test
           mage -v release test
       - name: Release Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          TF_VAR_TOKEN: ${{ secrets.TF_VAR_TOKEN }}
         run: |
           mage -v build live
           mage -v release live
