@@ -55,7 +55,6 @@ jobs:
           go mod vendor
       - name: Lint
         run: |
-          mage -v config
           mage -v lint
   
   test:
@@ -110,6 +109,8 @@ jobs:
           tfenv install
           go mod vendor
       - name: Test
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
           mage -v config
           mage -v test
@@ -230,10 +231,14 @@ jobs:
           go mod vendor
       - name: Build Test Environment
         if: ${{ github.ref != 'refs/heads/main' }}
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
           mage -v build test
       - name: Build Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
           mage -v config
           mage -v build live
@@ -291,12 +296,16 @@ jobs:
           go mod vendor
       - name: Release Test Environment
         if: ${{ github.ref != 'refs/heads/main' }}
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
           mage -v config
           mage -v build test
           mage -v release test
       - name: Release Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
           mage -v config
           mage -v build live
