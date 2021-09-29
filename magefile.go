@@ -23,6 +23,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,14 +34,13 @@ import (
 )
 
 var (
-	AllEnvironments     []string = []string{"test", "live"}
-	AssetsDir           string   = path.Join(".", "assets")
-	InfrastructureDir   string   = path.Join(".", "infrastructure")
-	LockTimeout         int      = 5
-	TemplatesDir        string   = path.Join(AssetsDir, "templates")
-	TerraformConfigPath string   = path.Join("~", ".terraformrc")
-	TestDir             string   = path.Join(".", "test")
-	VendorDir           string   = path.Join(".", "vendor")
+	AllEnvironments   []string = []string{"test", "live"}
+	AssetsDir         string   = path.Join(".", "assets")
+	InfrastructureDir string   = path.Join(".", "infrastructure")
+	LockTimeout       int      = 5
+	TemplatesDir      string   = path.Join(AssetsDir, "templates")
+	TestDir           string   = path.Join(".", "test")
+	VendorDir         string   = path.Join(".", "vendor")
 )
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +147,15 @@ func Config() error {
 		return errors.New("Terraform remote backend token not found in environment")
 	}
 
-	f, err := os.Create(TerraformConfigPath)
+	currentUser, err := user.Current()
+
+	if err != nil {
+		return err
+	}
+
+	terraformConfigPath := path.Join(currentUser.HomeDir, ".terraformrc")
+
+	f, err := os.Create(terraformConfigPath)
 
 	if err != nil {
 		return err
