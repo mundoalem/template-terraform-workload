@@ -19,7 +19,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"os"
 	"os/exec"
@@ -167,13 +166,12 @@ func Config() error {
 		return err
 	}
 
+	defer f.Close()
 	token := os.Getenv("TF_CREDENTIALS")
 
 	if token == "" {
 		return errors.New("Terraform remote backend token not found in environment")
 	}
-
-	writer := bufio.NewWriter(f)
 
 	tmpl := template.Must(
 		template.New("credentials.tfrc.json.tmpl").ParseFiles(
@@ -181,7 +179,7 @@ func Config() error {
 		),
 	)
 
-	err = tmpl.Execute(writer, struct {
+	err = tmpl.Execute(f, struct {
 		Token string
 	}{
 		token,
