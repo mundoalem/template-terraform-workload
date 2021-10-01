@@ -176,8 +176,8 @@ func Config() error {
 	writer := bufio.NewWriter(f)
 
 	tmpl := template.Must(
-		template.New("credentials.tfrc.json").ParseFiles(
-			path.Join(TemplatesDir, "credentials.tfrc.json"),
+		template.New("credentials.tfrc.json.tmpl").ParseFiles(
+			path.Join(TemplatesDir, "credentials.tfrc.json.tmpl"),
 		),
 	)
 
