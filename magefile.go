@@ -269,7 +269,7 @@ func Release(environ string) error {
 			)
 		}
 
-		err := sh.RunV("terraform", args...)
+		err = sh.RunV("terraform", args...)
 
 		if err != nil {
 			return err
