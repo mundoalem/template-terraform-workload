@@ -240,6 +240,22 @@ func Release(environ string) error {
 
 		args := []string{
 			"-chdir=" + envPath,
+			"init",
+			"-reconfigure",
+		}
+
+		if os.Getenv("CI") != "" {
+			args = append(args, "-input=false", "-no-color")
+		}
+
+		err := sh.RunV("terraform", args...)
+
+		if err != nil {
+			return err
+		}
+
+		args = []string{
+			"-chdir=" + envPath,
 			"apply",
 			"-lock-timeout=" + strconv.Itoa(LockTimeout) + "s",
 		}
