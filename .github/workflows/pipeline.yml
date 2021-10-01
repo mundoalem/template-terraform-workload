@@ -234,6 +234,7 @@ jobs:
         env:
           TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
+          mage -v config
           mage -v build test
       - name: Build Live Environment
         if: ${{ github.ref == 'refs/heads/main' }}
