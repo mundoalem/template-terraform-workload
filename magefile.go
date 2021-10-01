@@ -148,6 +148,13 @@ func Config() error {
 	}
 
 	terraformConfigDir := path.Join(currentUser.HomeDir, ".terraform.d")
+
+	err = os.MkdirAll(terraformConfigDir, os.ModeDir)
+
+	if err != nil {
+		return err
+	}
+
 	terraformConfigPath := path.Join(terraformConfigDir, "credentials.tfrc.json")
 
 	if _, err := os.Stat(terraformConfigPath); err == nil {
