@@ -113,7 +113,7 @@ jobs:
           TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
         run: |
           mage -v config
-          cat ~/.terraform.d/credentials.tfrc.json
+          ls ~/.terraform.d/credentials.tfrc.json
           mage -v test
   
   scan:
