@@ -141,24 +141,29 @@ func Clean() error {
 
 // Config sets up the required configuration files to run the pipeline
 func Config() error {
-	token := os.Getenv("TF_CREDENTIALS")
-
-	if token == "" {
-		return errors.New("Terraform remote backend token not found in environment")
-	}
-
 	currentUser, err := user.Current()
 
 	if err != nil {
 		return err
 	}
 
-	terraformConfigPath := path.Join(currentUser.HomeDir, ".terraformrc")
+	terraformConfigDir := path.Join(currentUser.HomeDir, ".terraform.d")
+	terraformConfigPath := path.Join(terraformConfigDir, "credentials.tfrc.json")
+
+	if _, err := os.Stat(terraformConfigPath); err == nil {
+		return errors.New("Terraform configuration file already exists")
+	}
 
 	f, err := os.Create(terraformConfigPath)
 
 	if err != nil {
 		return err
+	}
+
+	token := os.Getenv("TF_CREDENTIALS")
+
+	if token == "" {
+		return errors.New("Terraform remote backend token not found in environment")
 	}
 
 	writer := bufio.NewWriter(f)
