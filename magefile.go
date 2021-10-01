@@ -149,7 +149,7 @@ func Config() error {
 
 	terraformConfigDir := path.Join(currentUser.HomeDir, ".terraform.d")
 
-	err = os.MkdirAll(terraformConfigDir, os.ModeDir)
+	err = os.MkdirAll(terraformConfigDir, os.ModePerm)
 
 	if err != nil {
 		return err
