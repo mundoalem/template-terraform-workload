@@ -190,3 +190,9 @@ only need to update that one and the rest of the code will adapt.
 
 The harder change is in the `.github/workflows/pipeline.yml`. That one will require you to be familiar with GitHub
 Actions in order to update it accordingly. Teaching you how to do it is something that I can't do in a few lines.
+
+### Why don't you support [Infracost](https://www.infracost.io/)?
+
+Infracost works by analyzing the plan file and the `remote` backend does not support exporting the plan file. Infracost
+is an amazing tool that I am anxiously waiting to include in my template. Unfortunately it seems I will need to wait a
+little bit more to add it.
