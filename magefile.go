@@ -24,17 +24,19 @@ import (
 	"os/exec"
 	"os/user"
 	"path"
-	"path/filepath"
 	"strconv"
 	"text/template"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/pterm/pterm"
 )
 
 var (
 	AllEnvironments   []string = []string{"test", "live"}
 	AssetsDir         string   = path.Join(".", "assets")
+	BuildDir          string   = path.Join(".", "build")
+	FinanceDir        string   = path.Join(AssetsDir, "finance")
 	InfrastructureDir string   = path.Join(".", "infrastructure")
 	LockTimeout       int      = 5
 	TemplatesDir      string   = path.Join(AssetsDir, "templates")
@@ -63,6 +65,12 @@ func contains(s []string, el string) bool {
 
 // Build plans the release for a given environment
 func Build(environ string) error {
+	_, err := exec.LookPath("infracost")
+
+	if err != nil {
+		return err
+	}
+
 	var environmentsToBuild []string
 
 	if environ == "all" {
@@ -110,6 +118,49 @@ func Build(environ string) error {
 		if err != nil {
 			return err
 		}
+
+		args = []string{
+			"-chdir=" + envPath,
+			"show",
+			"-json",
+			"-no-color",
+		}
+
+		plan, err := sh.Output("terraform", args...)
+
+		if err != nil {
+			return err
+		}
+
+		planPath := path.Join(BuildDir, env+".plan")
+		f, err := os.Create(planPath)
+
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+
+		_, err = f.WriteString(plan)
+
+		if err != nil {
+			return err
+		}
+
+		f.Sync()
+
+		args = []string{
+			"breakdown",
+			"--sync-usage-file",
+			"--usage-file=" + path.Join(FinanceDir, "infracost-usage.yml"),
+			"--path=" + planPath,
+		}
+
+		err = sh.RunV("infracost", args...)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -117,23 +168,60 @@ func Build(environ string) error {
 
 // Clean removes temporary files created by other processes
 func Clean() error {
-	filesAndDirsToRemove := []string{
-		".terraform",
+	pterm.Info.Println("Clean process started")
+
+	toRemove := make([]pterm.BulletListItem, 0)
+
+	for _, env := range AllEnvironments {
+		planFile := path.Join(BuildDir, env+".plan")
+
+		if _, err := os.Stat(planFile); err == nil {
+			toRemove = append(
+				toRemove,
+				pterm.NewBulletListItemFromString(planFile, ""),
+			)
+		}
+
+		terraformDir := path.Join(InfrastructureDir, env, ".terraform")
+
+		if _, err := os.Stat(terraformDir); err == nil {
+			toRemove = append(
+				toRemove,
+				pterm.NewBulletListItemFromString(terraformDir, ""),
+			)
+		}
 	}
 
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if contains(filesAndDirsToRemove, info.Name()) {
-			if err := sh.Rm(path); err != nil {
-				return err
+	flagError := false
+
+	if len(toRemove) <= 0 {
+		pterm.Info.Println("Nothing to clean")
+	} else {
+		pterm.DefaultSection.Println("Removed")
+
+		for i := range toRemove {
+			path := toRemove[i].Text
+			err := sh.Rm(path)
+
+			if err != nil {
+				flagError = true
+
+				toRemove[i].TextStyle = pterm.NewStyle(pterm.FgRed)
+				toRemove[i].BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+				pterm.Error.Printfln("Could not remove '%s': %s", path, err)
 			}
 		}
 
-		return nil
-	})
-
-	if err != nil {
-		return err
+		pterm.DefaultBulletList.WithItems(toRemove).Render()
 	}
+
+	if flagError {
+		pterm.Error.Println("Clean process completed with errors")
+		return errors.New("Process failed")
+	}
+
+	pterm.Success.Println("Clean process completed")
 
 	return nil
 }
