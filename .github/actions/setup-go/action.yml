@@ -37,3 +37,4 @@ runs:
     - run: |
         go mod vendor
       if: steps.cache-vendor.outputs.cache-hit != 'true'
+      shell: bash
