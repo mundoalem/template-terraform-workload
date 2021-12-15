@@ -1,28 +1,14 @@
-name: Workflow - On All Branches
+name: Workflow - On Pull Requests To Main Branch
 
 on:
   push:
-    branches:
-      - '**'
-      - '!main'
+    tags:
+      - 'v*'
 
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-20.04
-    name: Lint
-    steps:
-      - uses: actions/checkout@v2
-      - uses: ./.github/actions/setup-go
-        with:
-          go-version: 1.17.3
-      - uses: ./.github/actions/setup-terraform
-      - run: |
-          mage -v lint
-
-  test:
-    runs-on: ubuntu-20.04
-    name: Test
-    needs: lint
+    name: Build
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-go
@@ -31,6 +17,22 @@ jobs:
       - uses: ./.github/actions/setup-terraform
       - run: |
           mage -v config
-          mage -v test
+          mage -v build live
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
+
+  release:
+    runs-on: ubuntu-20.04
+    name: Release
+    needs: build
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup-go
+        with:
+          go-version: 1.17.3
+      - uses: ./.github/actions/setup-terraform
+      - run: |
+          mage -v config
+          mage -v release live
         env:
           TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
