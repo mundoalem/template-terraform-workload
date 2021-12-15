@@ -1,0 +1,19 @@
+name: Setup Terraform
+description: Setup the terraform tools.
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/cache@v2
+      id: cache-tfenv
+      with:
+        path: |
+          ~/.tfenv
+          ~/.local/bin
+        key: ${{ runner.os }}-tfenv-${{ hashFiles('.terraform-version') }}
+    - run: |
+        git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+        ln -s ~/.tfenv/bin/* ~/.local/bin
+      if: steps.cache-tfenv.outputs.cache-hit != 'true'
+    - run: |
+        tfenv install
