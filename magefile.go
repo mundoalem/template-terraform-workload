@@ -48,7 +48,21 @@ var (
 // FUNCTIONS
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// constains returns whether a string is inside a slice or not
+// calculateInfrastructureCost runs infracost to calculate the cost of the infrastructure to be created by terraform
+func calculateInfrastructureCost(planPath string) error {
+	args := []string{
+		"breakdown",
+		"--sync-usage-file",
+		"--usage-file=" + path.Join(FinanceDir, "infracost-usage.yml"),
+		"--path=" + planPath,
+	}
+
+	err := sh.RunV("infracost", args...)
+
+	return err
+}
+
+// contains returns whether a string is inside a slice or not
 func contains(s []string, el string) bool {
 	for _, v := range s {
 		if v == el {
@@ -59,109 +73,251 @@ func contains(s []string, el string) bool {
 	return false
 }
 
+// isCi returns whether we are running in the pipeline or not
+func isCi() bool {
+	return os.Getenv("CI") != ""
+}
+
+// selectEnvironments returns a slice of environment names based on a choice of a selected environment
+func selectEnvironments(choice string) ([]string, error) {
+	var environments []string
+
+	if choice == "all" {
+		environments = make([]string, len(AllEnvironments))
+		copy(environments, AllEnvironments)
+	} else {
+		if contains(AllEnvironments, choice) {
+			environments = append(environments, choice)
+		} else {
+			return nil, errors.New("Environment " + choice + " is not valid")
+		}
+	}
+
+	return environments, nil
+}
+
+// tfApply runs terraform apply in the specified path
+func tfApply(path string) error {
+	args := []string{
+		"-chdir=" + path,
+		"apply",
+		"-lock-timeout=" + strconv.Itoa(LockTimeout) + "s",
+	}
+
+	if isCi() {
+		args = append(
+			args,
+			"-auto-approve",
+			"-input=false",
+		)
+	}
+
+	err := sh.RunV("terraform", args...)
+
+	return err
+}
+
+// tfInit runs terraform init inside the specified path
+func tfInit(path string) error {
+	args := []string{
+		"-chdir=" + path,
+		"init",
+		"-reconfigure",
+	}
+
+	if isCi() {
+		args = append(args, "-input=false")
+	}
+
+	err := sh.RunV("terraform", args...)
+
+	return err
+}
+
+// tfLint lints the terraform code in the specified path
+func tfLint(path string) error {
+	args := []string{
+		"fmt",
+		"-recursive",
+	}
+
+	if isCi() {
+		args = append(args, "-check", "-write=false", "-no-color")
+	}
+
+	args = append(args, path)
+	err := sh.RunV("terraform", args...)
+
+	return err
+}
+
+// tfPlan runs terraform plan in the specified path
+func tfPlan(path string) error {
+	args := []string{
+		"-chdir=" + path,
+		"plan",
+		"-lock-timeout=" + strconv.Itoa(LockTimeout) + "s",
+	}
+
+	if isCi() {
+		args = append(args, "-input=false")
+	}
+
+	err := sh.RunV("terraform", args...)
+
+	return err
+}
+
+// tfSavePlan exports the plan as a JSON file and save it locally
+func tfSavePlan(path string, planPath string) error {
+	args := []string{
+		"-chdir=" + path,
+		"show",
+		"-json",
+		"-no-color",
+	}
+
+	plan, err := sh.Output("terraform", args...)
+
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(planPath)
+
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	_, err = f.WriteString(plan)
+
+	if err != nil {
+		return err
+	}
+
+	f.Sync()
+
+	return nil
+}
+
+// tfSec scans the terraform files in the specified path for security vulnerabilities
+func tfSec(path string) error {
+	args := []string{
+		path,
+		"--verbose",
+		"--no-color",
+	}
+
+	err := sh.RunV("tfsec", args...)
+
+	return err
+}
+
+// tfTest runs the terratest files in the specified test path
+func tfTest(path string) error {
+	args := []string{
+		"test",
+		"-v",
+		"-count=1",
+		"./" + path + "/...",
+	}
+
+	err := sh.RunV("go", args...)
+
+	return err
+}
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MAGE TARGETS
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Build plans the release for a given environment
 func Build(environ string) error {
+	pterm.Info.Println("Build process started")
+
 	_, err := exec.LookPath("infracost")
 
 	if err != nil {
+		pterm.Error.Printfln("Could not find 'infracost' command: ", err)
 		return err
 	}
 
-	var environmentsToBuild []string
+	environments, err := selectEnvironments(environ)
 
-	if environ == "all" {
-		environmentsToBuild = make([]string, len(AllEnvironments))
-		copy(environmentsToBuild, AllEnvironments)
-	} else {
-		if contains(AllEnvironments, environ) {
-			environmentsToBuild = append(environmentsToBuild, environ)
-		} else {
-			return errors.New("Environment " + environ + " not found")
-		}
+	if err != nil {
+		pterm.Error.Printfln("Could not determine environments to build: ", err)
+		return err
 	}
 
-	for _, env := range environmentsToBuild {
+	buildReport := make([]pterm.BulletListItem, 0)
+	flagError := false
+
+	for _, env := range environments {
 		envPath := path.Join(InfrastructureDir, env)
+		buildReportItem := pterm.NewBulletListItemFromString(env, "")
 
-		args := []string{
-			"-chdir=" + envPath,
-			"init",
-			"-reconfigure",
-		}
-
-		if os.Getenv("CI") != "" {
-			args = append(args, "-input=false", "-no-color")
-		}
-
-		err := sh.RunV("terraform", args...)
+		err = tfInit(envPath)
 
 		if err != nil {
-			return err
+			buildReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			buildReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+			pterm.Error.Printfln("Could not initialize environment '", env, "': ", err)
+
+			flagError = true
 		}
 
-		args = []string{
-			"-chdir=" + envPath,
-			"plan",
-			"-lock-timeout=" + strconv.Itoa(LockTimeout) + "s",
-		}
-
-		if os.Getenv("CI") != "" {
-			args = append(args, "-input=false", "-no-color")
-		}
-
-		err = sh.RunV("terraform", args...)
+		err = tfPlan(envPath)
 
 		if err != nil {
-			return err
-		}
+			buildReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			buildReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
 
-		args = []string{
-			"-chdir=" + envPath,
-			"show",
-			"-json",
-			"-no-color",
-		}
+			pterm.Error.Printfln("Could not plan environment '", env, "': ", err)
 
-		plan, err := sh.Output("terraform", args...)
-
-		if err != nil {
-			return err
+			flagError = true
 		}
 
 		planPath := path.Join(BuildDir, env+".plan")
-		f, err := os.Create(planPath)
+
+		err = tfSavePlan(envPath, planPath)
 
 		if err != nil {
-			return err
+			buildReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			buildReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+			pterm.Error.Printfln("Could not save plan for environment '", env, "': ", err)
+
+			flagError = true
 		}
 
-		defer f.Close()
-
-		_, err = f.WriteString(plan)
+		err = calculateInfrastructureCost(planPath)
 
 		if err != nil {
-			return err
+			buildReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			buildReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+			pterm.Error.Printfln("Could not calculate cost of environment '", env,"': ", err)
+
+			flagError = true
 		}
 
-		f.Sync()
-
-		args = []string{
-			"breakdown",
-			"--sync-usage-file",
-			"--usage-file=" + path.Join(FinanceDir, "infracost-usage.yml"),
-			"--path=" + planPath,
-		}
-
-		err = sh.RunV("infracost", args...)
-
-		if err != nil {
-			return err
-		}
+		buildReport = append(buildReport, buildReportItem)
+		
+		pterm.Info.Println("Build process completed for environment '", env, "'")
 	}
+
+	pterm.DefaultSection.Println("Build")
+	pterm.DefaultBulletList.WithItems(buildReport).Render()
+
+	if flagError {
+		pterm.Error.Println("Build process completed with errors")
+		return errors.New("Process failed")
+	}
+
+	pterm.Success.Println("Build process completed")
 
 	return nil
 }
@@ -170,14 +326,20 @@ func Build(environ string) error {
 func Clean() error {
 	pterm.Info.Println("Clean process started")
 
-	toRemove := make([]pterm.BulletListItem, 0)
+	cleanReport := make([]pterm.BulletListItem, 0)
+	environments, err := selectEnvironments("all")
 
-	for _, env := range AllEnvironments {
+	if err != nil {
+		pterm.Error.Println("Could not determine the environments: ", err)
+		return errors.New("Process failed")
+	}
+
+	for _, env := range environments {
 		planFile := path.Join(BuildDir, env+".plan")
 
 		if _, err := os.Stat(planFile); err == nil {
-			toRemove = append(
-				toRemove,
+			cleanReport = append(
+				cleanReport,
 				pterm.NewBulletListItemFromString(planFile, ""),
 			)
 		}
@@ -185,8 +347,8 @@ func Clean() error {
 		terraformDir := path.Join(InfrastructureDir, env, ".terraform")
 
 		if _, err := os.Stat(terraformDir); err == nil {
-			toRemove = append(
-				toRemove,
+			cleanReport = append(
+				cleanReport,
 				pterm.NewBulletListItemFromString(terraformDir, ""),
 			)
 		}
@@ -194,26 +356,26 @@ func Clean() error {
 
 	flagError := false
 
-	if len(toRemove) <= 0 {
+	if len(cleanReport) <= 0 {
 		pterm.Info.Println("Nothing to clean")
 	} else {
 		pterm.DefaultSection.Println("Removed")
 
-		for i := range toRemove {
-			path := toRemove[i].Text
+		for i := range cleanReport {
+			path := cleanReport[i].Text
 			err := sh.Rm(path)
 
 			if err != nil {
 				flagError = true
 
-				toRemove[i].TextStyle = pterm.NewStyle(pterm.FgRed)
-				toRemove[i].BulletStyle = pterm.NewStyle(pterm.FgRed)
+				cleanReport[i].TextStyle = pterm.NewStyle(pterm.FgRed)
+				cleanReport[i].BulletStyle = pterm.NewStyle(pterm.FgRed)
 
-				pterm.Error.Printfln("Could not remove '%s': %s", path, err)
+				pterm.Error.Printfln("Could not remove '", path, "': ", err)
 			}
 		}
 
-		pterm.DefaultBulletList.WithItems(toRemove).Render()
+		pterm.DefaultBulletList.WithItems(cleanReport).Render()
 	}
 
 	if flagError {
@@ -228,37 +390,48 @@ func Clean() error {
 
 // Config sets up the required configuration files to run the pipeline
 func Config() error {
+	pterm.Info.Println("Config process started")
+
 	currentUser, err := user.Current()
 
 	if err != nil {
-		return err
+		pterm.Error.Println("Could not determine current user: ", err)
+		return errors.New("Process failed")
 	}
 
 	terraformConfigDir := path.Join(currentUser.HomeDir, ".terraform.d")
 
+	pterm.Info.Println("Creating directory: ", terraformConfigDir)
+
 	err = os.MkdirAll(terraformConfigDir, os.ModePerm)
 
 	if err != nil {
-		return err
+		pterm.Error.Println("Could not create directory '", terraformConfigDir, "': %s", err)
+		return errors.New("Process failed")
 	}
 
 	terraformConfigPath := path.Join(terraformConfigDir, "credentials.tfrc.json")
 
+	pterm.Info.Println("Creating configuration file: ", terraformConfigPath)	
+
 	if _, err := os.Stat(terraformConfigPath); err == nil {
-		return errors.New("Terraform configuration file already exists")
+		pterm.Error.Println("Terraform configuration file '", terraformConfigPath, "' already exists: ", err)
+		return errors.New("Process failed")
 	}
 
 	f, err := os.Create(terraformConfigPath)
 
 	if err != nil {
-		return err
+		pterm.Error.Println("Could not create file '", terraformConfigPath,"': ", err)
+		return errors.New("Process failed")
 	}
 
 	defer f.Close()
 	token := os.Getenv("TF_CREDENTIALS")
 
 	if token == "" {
-		return errors.New("Terraform remote backend token not found in environment")
+		pterm.Error.Println("Terraform remote backend token not found in environment")
+		return errors.New("Process failed")
 	}
 
 	tmpl := template.Must(
@@ -274,95 +447,107 @@ func Config() error {
 	})
 
 	if err != nil {
-		return err
+		pterm.Error.Println("Could not configure terraform backend from template: ", err)
+		return errors.New("Process failed")
 	}
+
+	pterm.Success.Println("Config process completed")
 
 	return nil
 }
 
 // Lint checks the source code for style and syntax issues
 func Lint() error {
+	pterm.Info.Println("Lint process started")
+
 	pathsToLint := []string{
 		InfrastructureDir,
 	}
 
-	args := []string{
-		"fmt",
-		"-recursive",
-	}
-
-	if os.Getenv("CI") != "" {
-		args = append(args, "-check", "-write=false", "-no-color")
-	}
+	lintReport := make([]pterm.BulletListItem, 0)
+	flagError := false
 
 	for _, path := range pathsToLint {
-		args = append(args, path)
+		lintReportItem := pterm.NewBulletListItemFromString(path, "")
+		err := tfLint(path)
 
-		if err := sh.RunV("terraform", args...); err != nil {
-			return err
+		if err != nil {
+			lintReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			lintReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+			pterm.Error.Printfln("Could not lint environment '", path, "': ", err)
+
+			flagError = true
 		}
 
-		args = args[:len(args)-1]
+		lintReport = append(lintReport, lintReportItem)
 	}
+
+	pterm.DefaultSection.Println("Lint")
+	pterm.DefaultBulletList.WithItems(lintReport).Render()
+
+	if flagError {
+		pterm.Error.Println("Lint process completed with errors")
+		return errors.New("Process failed")
+	}
+
+	pterm.Success.Println("Lint process completed")
 
 	return nil
 }
 
 // Release applies the configuration for a given environment
 func Release(environ string) error {
-	var environmentsToBuild []string
+	pterm.Info.Println("Release process started")
 
-	if environ == "all" {
-		environmentsToBuild = make([]string, len(AllEnvironments))
-		copy(environmentsToBuild, AllEnvironments)
-	} else {
-		if contains(AllEnvironments, environ) {
-			environmentsToBuild = append(environmentsToBuild, environ)
-		} else {
-			return errors.New("Environment " + environ + " not found")
-		}
+	environments, err := selectEnvironments(environ)
+
+	if err != nil {
+		pterm.Error.Printfln("Could not determine environments to build: ", err)
+		return err
 	}
 
-	for _, env := range environmentsToBuild {
+	releaseReport := make([]pterm.BulletListItem, 0)
+	flagError := false
+
+	for _, env := range environments {
 		envPath := path.Join(InfrastructureDir, env)
+		releaseReportItem := pterm.NewBulletListItemFromString(env, "")
 
-		args := []string{
-			"-chdir=" + envPath,
-			"init",
-			"-reconfigure",
-		}
-
-		if os.Getenv("CI") != "" {
-			args = append(args, "-input=false", "-no-color")
-		}
-
-		err := sh.RunV("terraform", args...)
+		err = tfInit(envPath)
 
 		if err != nil {
-			return err
+			releaseReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			releaseReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+			pterm.Error.Printfln("Could not initialize environment '", env, "': ", err)
+
+			flagError = true
 		}
 
-		args = []string{
-			"-chdir=" + envPath,
-			"apply",
-			"-lock-timeout=" + strconv.Itoa(LockTimeout) + "s",
-		}
-
-		if os.Getenv("CI") != "" {
-			args = append(
-				args,
-				"-auto-approve",
-				"-input=false",
-				"-no-color",
-			)
-		}
-
-		err = sh.RunV("terraform", args...)
+		err = tfApply(envPath)
 
 		if err != nil {
-			return err
+			releaseReportItem.TextStyle = pterm.NewStyle(pterm.FgRed)
+			releaseReportItem.BulletStyle = pterm.NewStyle(pterm.FgRed)
+
+			pterm.Error.Printfln("Could not release environment '", env, "': ", err)
+
+			flagError = true
 		}
+
+		releaseReport = append(releaseReport, releaseReportItem)
 	}
+
+	pterm.DefaultSection.Println("Release")
+	pterm.DefaultBulletList.WithItems(releaseReport).Render()
+
+	if flagError {
+		pterm.Error.Println("Release process completed with errors")
+		return errors.New("Process failed")
+	}
+
+	pterm.Success.Println("Release process completed")
 
 	return nil
 }
@@ -371,42 +556,63 @@ func Release(environ string) error {
 func Reset() error {
 	mg.Deps(Clean)
 
+	pterm.Info.Println("Reset process started")
+	pterm.Info.Println("Removing installed dependencies in directory: ", VendorDir)
+
 	if err := sh.Rm(VendorDir); err != nil {
-		return err
+		pterm.Error.Println("Could not remove directory '", VendorDir, "': ", err)
+		return errors.New("Process failed")
 	}
 
+	pterm.Info.Println("Creating empty dependencies directory: ", VendorDir)
+
 	if err := os.Mkdir(VendorDir, 0755); err != nil {
-		return err
+		pterm.Error.Println("Could not create directory '", VendorDir, "': ", err)
+		return errors.New("Process failed")
 	}
+
+	pterm.Success.Println("Reset process completed")
 
 	return nil
 }
 
 // Scan runs a security check to search for known vulnerabilities in the project
 func Scan() error {
+	pterm.Info.Println("Scan process started")
+
 	_, err := exec.LookPath("tfsec")
 
 	if err != nil {
-		return err
+		pterm.Error.Println("Could not find tfsec command: %s", err)
+		return errors.New("Process failed")
 	}
 
-	args := []string{
-		InfrastructureDir,
-		"--verbose",
-		"--no-color",
+	pterm.Info.Println("Scanning directory: ", InfrastructureDir)
+
+	err = tfSec(InfrastructureDir)
+	
+	if err != nil {
+		pterm.Error.Println("Security vulnerabilities found: ", err)
+		return errors.New("Process failed")
 	}
 
-	return sh.RunV("tfsec", args...)
+	pterm.Success.Println("Scan process completed")
+
+	return nil
 }
 
 // Test runs the unit test for the project
 func Test() error {
-	args := []string{
-		"test",
-		"-v",
-		"-count=1",
-		"./" + TestDir + "/...",
+	pterm.Info.Println("Test process started")
+
+	err := tfTest(TestDir)
+
+	if err != nil {
+		pterm.Error.Println("Test process failed: ", err)
+		return errors.New("Process failed")
 	}
 
-	return sh.RunV("go", args...)
+	pterm.Success.Println("Test process completed")
+
+	return nil
 }
