@@ -1,7 +1,7 @@
 name: Workflow - On Main Branch
 
 on:
-  pull_request:
+  push:
     branches:
       - main
 
@@ -53,8 +53,6 @@ jobs:
       - uses: ./.github/actions/setup-go
       - uses: ./.github/actions/setup-terraform
       - uses: ./.github/actions/setup-infracost
-        with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
       - run: |
           mage -v config
           mage -v build live
