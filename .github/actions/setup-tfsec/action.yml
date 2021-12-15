@@ -1,0 +1,23 @@
+name: Setup tfsec
+description: Setup tfsec.
+
+inputs:
+  tfsec-version:
+    description: tfsec version to install
+    required: false
+    default: 0.63.1
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/cache@v2
+      id: cache-tfsec
+      with:
+        path: |
+          ~/.local/bin/tfsec
+        key: ${{ runner.os }}-tfsec-${{ hashFiles('~/.local/bin/tfsec') }}
+    - run: |
+        curl -sSL https://github.com/aquasecurity/tfsec/releases/download/v${{ inputs.tfsec-version }}/tfsec-linux-amd64 > ~/.local/bin/tfsec
+        chmod +x ~/.local/bin/tfsec
+      if: steps.cache-tfsec.outputs.cache-hit != 'true'
+      shell: bash
