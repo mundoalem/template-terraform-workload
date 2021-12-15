@@ -1,0 +1,31 @@
+{
+	"name": "Terraform",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "..",
+		"args": {
+			"GOLANG_VERSION": "1.17.3",
+			"TERRAFORM_VERSION": "1.1.0"
+		}
+	},
+	"settings": {
+		"editor.defaultFormatter": "",
+		"editor.formatOnSave": true,
+		"terminal.integrated.profiles.linux": {
+			"bash": {
+				"path": "/usr/bin/bash"
+			},
+			"fish": {
+				"path": "/usr/bin/fish"
+			},
+			"zsh": {
+				"path": "/usr/bin/zsh"
+			}
+		},
+		"terminal.integrated.defaultProfile.linux": "fish"
+	},
+	"extensions": [],
+	"features": {},
+	"postCreateCommand": "eval \"$(goenv init -)\" && go mod vendor",
+	"remoteUser": "vscode"
+}
