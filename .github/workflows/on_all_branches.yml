@@ -48,3 +48,5 @@ jobs:
       - run: |
           mage -v config
           mage -v test
+        env:
+          TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
