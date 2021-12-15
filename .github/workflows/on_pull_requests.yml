@@ -41,8 +41,6 @@ jobs:
       - uses: ./.github/actions/setup-tfsec
       - run: |
           mage -v scan
-        env:
-          INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
 
   build:
     runs-on: ubuntu-20.04
@@ -57,6 +55,7 @@ jobs:
           mage -v config
           mage -v build test
         env:
+          INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
           TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
 
   release:

@@ -18,6 +18,7 @@ jobs:
           mage -v config
           mage -v build live
         env:
+          INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
           TF_CREDENTIALS: ${{ secrets.TF_CREDENTIALS }}
 
   release:
