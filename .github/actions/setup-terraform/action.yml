@@ -32,6 +32,7 @@ runs:
         curl -sSL https://github.com/aquasecurity/tfsec/releases/download/v${{ inputs.tfsec-version }}/tfsec-linux-amd64 > ~/.local/bin/tfsec
         chmod +x ~/.local/bin/tfsec
       if: steps.cache-tfsec.outputs.cache-hit != 'true'
+      shell: bash
     - run: |
         tfenv install
       shell: bash
