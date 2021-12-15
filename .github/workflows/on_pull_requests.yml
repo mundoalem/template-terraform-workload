@@ -38,6 +38,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-go
       - uses: ./.github/actions/setup-terraform
+      - uses: ./.github/actions/setup-tfsec
       - run: |
           mage -v scan
 
