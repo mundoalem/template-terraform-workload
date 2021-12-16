@@ -100,10 +100,12 @@ service and set a Team API Token that can be used in order to run terraform `ini
 If you also require authentication to providers such as AWS and Azure you will have to setup the authentication to those
 providers yourself as this template only contemplates the authentication to the remote backend. In that cases, you
 probably want to provide the necessary secrets as environment variables, this way `terraform` can read them. It may also
-be necessary for you to tweak `magefile.go` and `.github/workflows/pipeline.yml` to meet your requirements.
+be necessary for you to tweak `magefile.go` and the workflow files under`.github/workflows` to meet your requirements.
 
 In the pipeline the build script also looks into a few environment variables that are set by GitHub automatically. These
-variables are used by the automation in order to either make decisions or use as input data:
+variables are used by the automation in order to either make decisions or use as input data.
+
+Anyway, these are the variables that this template will expect to exist in the environment:
 
 | Variable          | Description                                                           |
 | ----------------- | --------------------------------------------------------------------- |
