@@ -9,8 +9,10 @@
 		}
 	},
 	"settings": {
-		"editor.defaultFormatter": "",
+		"editor.defaultFormatter": "golang.go",
 		"editor.formatOnSave": true,
+		"go.gopath": "/home/vscode/go/1.17.3",
+		"go.goroot": "/home/vscode/.goenv/versions/1.17.3",
 		"terminal.integrated.profiles.linux": {
 			"bash": {
 				"path": "/usr/bin/bash"
@@ -24,7 +26,11 @@
 		},
 		"terminal.integrated.defaultProfile.linux": "fish"
 	},
-	"extensions": [],
+	"extensions": [
+		"golang.go",
+		"hashicorp.sentinel",
+		"hashicorp.terraform"
+	],
 	"features": {},
 	"postCreateCommand": "eval \"$(goenv init -)\" && go mod vendor",
 	"remoteUser": "vscode"

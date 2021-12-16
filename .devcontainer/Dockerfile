@@ -46,6 +46,9 @@ RUN git clone https://github.com/magefile/mage /tmp/mage \
     && cd - \
     && rm -rf /tmp/mage
 
+RUN eval "$(goenv init -)" \
+    && go install "golang.org/x/tools/gopls@latest"
+
 RUN echo -e 'eval "$(goenv init -)"' >>$HOME/.profile
 
 RUN mkdir -p $HOME/.config/fish \
