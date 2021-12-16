@@ -1,4 +1,4 @@
-name: Workflow - On Pull Requests To Main Branch
+name: Workflow - On Tags
 
 on:
   push:
