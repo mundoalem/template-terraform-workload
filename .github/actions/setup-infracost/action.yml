@@ -1,0 +1,9 @@
+name: Setup Infracost
+description: Setup infracost.
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+      shell: bash
