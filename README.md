@@ -184,8 +184,8 @@ since the whole point of Terraspace __is__ to bootstrap the configuration for yo
  
 ### Where do I put the code for a module that is shared across different environments?
 
-In that case you should put the module in its own repository. You can you our template called
-[template-terraform-module](https://github.com/mundoalem/template-terraform-module) to help you.
+In that case you should put the module in its own repository. You can use our template called
+[template-terraform-module](https://github.com/mundoalem/template-terraform-module) to help you bootstrap it.
 
 ### What if I use different environments other than `test` and `live`?
 
