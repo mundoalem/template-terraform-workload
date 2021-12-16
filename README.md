@@ -5,7 +5,7 @@
 # Template Terraform Workload
 
 ![Release Version](https://img.shields.io/github/v/release/mundoalem/template-terraform-workload)
-![Pipeline Status](https://github.com/mundoalem/template-terraform-workload/actions/workflows/pipeline.yml/badge.svg)
+![Pipeline Status](https://github.com/mundoalem/template-terraform-workload/actions/workflows/on_tag.yml/badge.svg)
 ![Contributors](https://img.shields.io/github/contributors/mundoalem/template-terraform-workload)
 
 A DevOps centric template to bootstrap Terraform workload projects.
@@ -41,11 +41,12 @@ You can manage the project locally through the use of [mage](https://magefile.or
 
 These are the software baked in this template:
 
-- [Terraform](https://www.terraform.io/) v1.0.6
-- [Go](https://www.python.org/) v1.17.0
-- [Magefile](https://github.com/magefile/mage) v1.11.0
-- [tfenv](https://github.com/tfutils/tfenv) v2.2.2
-- [tfsec](https://github.com/aquasecurity/tfsec) v0.58.6
+- [Terraform](https://www.terraform.io/) v1.1.0
+- [Go](https://www.go.dev/)
+- [Magefile](https://github.com/magefile/mage)
+- [tfenv](https://github.com/tfutils/tfenv)
+- [tfsec](https://github.com/aquasecurity/tfsec)
+- [infracost](https://www.infracost.io)
 
 ## Usage
 
@@ -84,6 +85,13 @@ $ mage release live
 In order to release a package you need to create a release in GitHub assigning a tag to it. The pipeline will be
 triggered automatically and at the end of the release step it will attach the source tarballs to the GitHub release.
 
+## Visual Studio Code Integration
+
+If you use [Visual Studio Code](https://code.visualstudio.com/) you can install the
+[Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+in order to use this template without having to install anything on your local machine. Well, other than Docker at
+least.
+
 ## Environment Variables
 
 This template is setup to work with [Terraform Cloud](https://app.terraform.io/) so you will need to sign up to this
@@ -97,10 +105,11 @@ be necessary for you to tweak `magefile.go` and `.github/workflows/pipeline.yml`
 In the pipeline the build script also looks into a few environment variables that are set by GitHub automatically. These
 variables are used by the automation in order to either make decisions or use as input data:
 
-| Variable       | Description                                                           |
-| -------------- | --------------------------------------------------------------------- |
-| CI             | Used to determine whether we are running locally or inside a pipeline |
-| TF_CREDENTIALS | The Team API Token to access workspaces in Terraform Cloud            |
+| Variable          | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| CI                | Used to determine whether we are running locally or inside a pipeline |
+| INFRACOST_API_KEY | Used during build phase to calculate the cost if the infrastructure   |
+| TF_CREDENTIALS    | The Team API Token to access workspaces in Terraform Cloud            |
 
 ## Feedback
 
@@ -190,9 +199,3 @@ only need to update that one and the rest of the code will adapt.
 
 The harder change is in the `.github/workflows/pipeline.yml`. That one will require you to be familiar with GitHub
 Actions in order to update it accordingly. Teaching you how to do it is something that I can't do in a few lines.
-
-### Why don't you support [Infracost](https://www.infracost.io/)?
-
-Infracost works by analyzing the plan file and the `remote` backend does not support exporting the plan file. Infracost
-is an amazing tool that I am anxiously waiting to include in my template. Unfortunately it seems I will need to wait a
-little bit more to add it.
