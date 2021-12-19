@@ -9,7 +9,6 @@ RUN apt-get update \
     && apt-get -y install --no-install-recommends \
         build-essential make\
         fish
-        
 
 USER vscode
 
