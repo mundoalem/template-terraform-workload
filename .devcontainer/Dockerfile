@@ -9,7 +9,6 @@ RUN apt-get update \
     && apt-get -y install --no-install-recommends \
         build-essential make\
         fish
-        
 
 USER vscode
 
@@ -45,6 +44,9 @@ RUN git clone https://github.com/magefile/mage /tmp/mage \
     && go run bootstrap.go \
     && cd - \
     && rm -rf /tmp/mage
+
+RUN eval "$(goenv init -)" \
+    && go install "golang.org/x/tools/gopls@latest"
 
 RUN echo -e 'eval "$(goenv init -)"' >>$HOME/.profile
 
